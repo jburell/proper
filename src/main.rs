@@ -63,10 +63,12 @@ fn open_file(filename: &str) -> fs::File {
         .ok().expect(&*format!("Could not open: {}", filename))
 }
 
-fn map_args(args: &Vec<String>) -> HashMap<ValidArgs, Option<String>> {
-    let mut arg_map = HashMap::new();
-    for i in args {
-        arg_map.insert(ValidArgs::PropertyFilename, None /*Some("val1".to_string())*/);
+fn map_args(args: &Vec<String>) -> Box<HashMap<ValidArgs, Option<String>>> {
+    let mut arg_map = Box::new(HashMap::new());
+    println!("len: {}", args.len());
+    for i in args.iter().enumerate() {
+        println!("{}: {}", i.0, i.1); 
+        //(*arg_map).insert(ValidArgs::PropertyFilename, /*Some(i.to_string()*/None);
     }
     arg_map
 }
@@ -78,7 +80,7 @@ fn validate_args<'a>(args: &'a HashMap<ValidArgs, Option<String>>) -> Result<&'a
     }
 }
 
-static help_txt: &'static str = "Usage: proper [OPTIONS] <property-file> <result-file>";
+static HELP_TXT: &'static str = "Usage: proper [OPTIONS] <property-file> <result-file>";
 
 #[derive(Eq)]
 #[derive(Hash)]
@@ -99,25 +101,36 @@ impl PartialEq for ValidArgs {
 
 #[allow(dead_code)]
 fn main() {
-  /*  let mut cmd_args = env::args();
+    let mut cmd_args = env::args();
     let application_name = cmd_args.next().unwrap();
-    let args = &map_args(&cmd_args.collect());
+
+    let args = map_args(&cmd_args.collect());
     let valid_args = validate_args(&args).unwrap_or_else(|v| {
         println!("ERROR: {}", v);
-        println!("{}", help_txt);
+        println!("{}", HELP_TXT);
         std::process::exit(1);
     });
 
-    let prop_maybe = valid_args.get(&ValidArgs::PropertyFilename);
-    let prop_maybe2 = prop_maybe.unwrap();
-    let prop_filename = prop_maybe2.unwrap();
-    let key_filename = args.get(&ValidArgs::KeysFilename).unwrap().unwrap();
-    let result_filename = args.get(&ValidArgs::ResultFilename).unwrap().unwrap();
-    let prop_file = open_file(&*prop_filename);
-    let key_file = open_file(&*key_filename);
+    let prop_filename = valid_args.get(&ValidArgs::PropertyFilename).unwrap_or_else(|| {
+        println!("ERROR: {}", "Could not find property-file");
+        println!("{}", HELP_TXT);
+        std::process::exit(1);
+    }).as_ref().unwrap();
+    let key_filename = valid_args.get(&ValidArgs::KeysFilename).unwrap_or_else(|| {
+        println!("ERROR: {}", "Could not find key-file");
+        println!("{}", HELP_TXT);
+        std::process::exit(1);
+    }).as_ref().unwrap();
+    let result_filename = valid_args.get(&ValidArgs::ResultFilename).unwrap_or_else(|| {
+        println!("ERROR: {}", "Could not find result-file");
+        println!("{}", HELP_TXT);
+        std::process::exit(1);
+    }).as_ref().unwrap();
+//    let prop_file = open_file(&prop_filename);
+//    let key_file = open_file(&key_filename);
 
     let mut result_file = fs::File::create(result_filename).unwrap();
-    for line in process(prop_file, &extract_keys(key_file)).iter().enumerate() {
+  /*  for line in process(prop_file, &extract_keys(key_file)).iter().enumerate() {
         println!("{}: {}", line.0, line.1);
         result_file.write_all(&format!("{}\n", line.1).as_bytes()).unwrap();
     }*/
