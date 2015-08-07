@@ -1,6 +1,8 @@
 extern crate regex;
+extern crate getopts;
+use getopts::Options;
 use std::{env, fs, io};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::prelude::*;
 
 macro_rules! regex { ($re:expr) => { ::regex::Regex::new($re).unwrap() } }
@@ -19,7 +21,6 @@ fn replace_var(line: String, keys: &HashMap<String, String>, result: &mut Vec<St
 
     result.push(str_line.to_string());
 }
-
 
 fn env_or_prop(key: &str, keys: &HashMap<String, String>) -> Option<String> {
     env::var_os(key).or(
@@ -41,7 +42,7 @@ fn process(file: fs::File, dict: &HashMap<String, String>) -> Vec<String> {
     result
 }
 
-fn extract_keys(file: fs::File) -> HashMap<String, String>{
+fn extract_keys(file: fs::File) -> HashMap<String, String> {
     let key_regex = regex!(r"^\s*(?P<key>\S*)\s*=\s*(?P<val>.*)");
     let buf_reader = io::BufReader::new(&file);
     let mut key_map = HashMap::new();
@@ -58,80 +59,232 @@ fn extract_keys(file: fs::File) -> HashMap<String, String>{
     key_map
 }
 
-fn open_file(filename: &str) -> fs::File {
-    fs::File::open(filename)
-        .ok().expect(&*format!("Could not open: {}", filename))
+fn print_usage(program: &str, opts: &ApplicationOptions) {
+    let brief = format!("Usage: {} [OPTIONS] <property-file> <result-file>", program);
+    print!("{}", opts.usage(&*brief));
 }
 
-fn map_args(args: &Vec<String>) -> Box<HashMap<ValidArgs, Option<String>>> {
-    let mut arg_map = Box::new(HashMap::new());
-    println!("len: {}", args.len());
-    for i in args.iter().enumerate() {
-        println!("{}: {}", i.0, i.1); 
-        //(*arg_map).insert(ValidArgs::PropertyFilename, /*Some(i.to_string()*/None);
+fn print_usage_and_panic(program: &str, opts: &ApplicationOptions) {
+    print_usage(program, opts);
+    panic!();
+}
+
+fn get_free_args(flag_args: HashSet<String>, free_args: Vec<String>) -> Vec<String> {
+    let mut result = Vec::new();
+    println!("{}", flag_args.len());
+    for a in free_args {
+        println!("{}", a);
+        if !flag_args.contains(&a) {
+            result.push(a);
+        }
     }
-    arg_map
+
+    result
 }
 
-fn validate_args<'a>(args: &'a HashMap<ValidArgs, Option<String>>) -> Result<&'a HashMap<ValidArgs, Option<String>>, &str> {
-    match args.len() != 4 {
-        true => Ok(args),
-        false => Err("There needs to be 4 args"),
+
+struct ApplicationOptions {
+    opts: Options,
+    flags: HashSet<String>,
+}
+
+trait OptionManagement {
+    fn new() -> Self;
+    fn has_flag(&self, flag: &str) -> bool;
+    fn opt(&mut self,
+           short_name: &str,
+           long_name: &str,
+           desc: &str,
+           hint: &str,
+           hasarg: getopts::HasArg,
+           occur: getopts::Occur) -> Result<(), String>;
+   // fn optflag(&mut self, short: &str, long: &str, desc: &str);
+    fn parse(&mut self, args: &[String]) -> Result<getopts::Matches, String>;
+    fn parsing_style(&mut self, getopts::ParsingStyle);
+    fn usage(&self, &str) -> String;
+}
+
+impl OptionManagement for ApplicationOptions {
+    fn new() -> Self {
+        ApplicationOptions {
+            opts: Options::new(),
+            flags: HashSet::new(),
+        }
+    }
+
+    fn has_flag(&self, flag: &str) -> bool {
+        self.flags.contains(flag)
+    }
+
+    fn opt(&mut self,
+           short_name: &str,
+           long_name: &str,
+           desc: &str,
+           hint: &str,
+           hasarg: getopts::HasArg,
+           occur: getopts::Occur) -> Result<(), String> {
+        if self.flags.contains(short_name) {
+            Err(format!("The flag {} is only allowed once", short_name))
+        } else if self.flags.contains(long_name) {
+            Err(format!("The flag {} is only allowed once", long_name))
+        } else {
+            //println!("{:?}", self.flags);
+            if short_name.len() > 0 {
+                self.flags.insert(format!("-{}", short_name.to_string()));
+            }
+            if long_name.len() > 0 {
+                self.flags.insert(format!("--{}",long_name.to_string()));
+            }
+            self.opts.opt(short_name,
+                long_name,
+                desc,
+                hint,
+                hasarg,
+                occur);
+            Ok(())
+        }
+    }
+
+    /*fn optflag(&mut self, short: &str, long: &str, desc: &str) {
+        self.opts.optflag(short, long, desc);
+    }*/
+
+    fn parse(&mut self, args: &[String]) -> Result<getopts::Matches, String> {
+        self.opts.parse(args).or_else(|e| Err(e.to_string()))            
+    }
+
+    fn parsing_style(&mut self, style: getopts::ParsingStyle) {
+        self.opts.parsing_style(style);
+    }
+
+    fn usage(&self, s: &str) -> String {
+        self.opts.usage(s)
     }
 }
 
-static HELP_TXT: &'static str = "Usage: proper [OPTIONS] <property-file> <result-file>";
-
-#[derive(Eq)]
-#[derive(Hash)]
-enum ValidArgs {
-    PropertyFilename,
-    KeysFilename,
-    ResultFilename,
+struct ArgOpts {
+    application_name: String,
+    opts: ApplicationOptions,
 }
 
-impl PartialEq for ValidArgs {
-    fn eq(&self, other: &ValidArgs) -> bool {
-        self == other
+trait ParseOptions {
+    fn new() -> Self;
+    fn has_option(&self, opt: &str) -> bool;
+    fn parse<F>(&mut self, setup_func: F) -> Result<getopts::Matches, String>
+      where F: Fn(&mut ApplicationOptions) -> Result<&mut ApplicationOptions, String>;
+    // fn options(self) -> Vec<String>;
+}
+
+impl ParseOptions for ArgOpts {
+    fn new() -> Self { 
+        ArgOpts {
+            application_name: env::args().next().unwrap(),
+            opts: ApplicationOptions::new(),
+        }
     }
-    fn ne(&self, other: &ValidArgs) -> bool {
-        self != other
+
+    fn has_option(&self, opt: &str) -> bool {
+        self.opts.has_flag(opt)
+    }
+
+    fn parse<F>(&mut self, setup_func: F) -> Result<getopts::Matches, String> 
+        where F: FnOnce(&mut ApplicationOptions) -> Result<&mut ApplicationOptions, String> {
+        let opts = setup_func(&mut (self.opts)).unwrap();
+        let args: Vec<String> = env::args().collect();        
+        let matches: getopts::Matches = match opts.parse(&args[1..]) {
+            Ok(m) => { m }
+            Err(f) => { 
+                println!("ERROR: {}", f.to_string());
+                print_usage(&*self.application_name, &opts); panic!(); 
+            }
+        };
+
+        if matches.opt_present("?") {
+            print_usage(&*self.application_name, &opts);
+            std::process::exit(1);
+        }
+
+        Ok(matches)
+        
     }
 }
 
 #[allow(dead_code)]
 fn main() {
-    let mut cmd_args = env::args();
-    let application_name = cmd_args.next().unwrap();
+    let arg_parser: &mut ArgOpts  = &mut ParseOptions::new();
 
-    let args = map_args(&cmd_args.collect());
-    let valid_args = validate_args(&args).unwrap_or_else(|v| {
-        println!("ERROR: {}", v);
-        println!("{}", HELP_TXT);
-        std::process::exit(1);
+    let matches: getopts::Matches = arg_parser.parse(|o: &mut ApplicationOptions| {
+        o.parsing_style(getopts::ParsingStyle::StopAtFirstFree);
+        o.opt("k", "keys", 
+              "keyfile with variable substitutions", "FILE", 
+              getopts::HasArg::Yes, getopts::Occur::Optional).unwrap();
+        o.opt("p", "props-first", 
+              "properties takes precedence over environment variables (default: off)", "", 
+              getopts::HasArg::No, getopts::Occur::Optional).unwrap();
+        o.opt("?", "help", 
+              "print this help menu", "",
+              getopts::HasArg::No, getopts::Occur::Optional).unwrap();
+        Ok(o)
+    }).unwrap_or_else(|e| {
+        panic!(e);
     });
 
-    let prop_filename = valid_args.get(&ValidArgs::PropertyFilename).unwrap_or_else(|| {
-        println!("ERROR: {}", "Could not find property-file");
-        println!("{}", HELP_TXT);
-        std::process::exit(1);
-    }).as_ref().unwrap();
-    let key_filename = valid_args.get(&ValidArgs::KeysFilename).unwrap_or_else(|| {
-        println!("ERROR: {}", "Could not find key-file");
-        println!("{}", HELP_TXT);
-        std::process::exit(1);
-    }).as_ref().unwrap();
-    let result_filename = valid_args.get(&ValidArgs::ResultFilename).unwrap_or_else(|| {
-        println!("ERROR: {}", "Could not find result-file");
-        println!("{}", HELP_TXT);
-        std::process::exit(1);
-    }).as_ref().unwrap();
-//    let prop_file = open_file(&prop_filename);
-//    let key_file = open_file(&key_filename);
+    let mut opt_args: HashSet<String> = HashSet::new(); 
 
+    let key_file: Option<fs::File> = if matches.opt_present("k") {
+        let app_name = &*arg_parser.application_name.clone();
+        let opts = &arg_parser.opts;
+        match matches.opt_str("k") {
+            Some(v) => {
+                if arg_parser.has_option(&*v) {
+                    println!("ERROR: Expected key-filename, found: {}", &*v);
+                    print_usage_and_panic(app_name, opts);
+                    None
+                } else {
+                    //println!("key_filename {}", v);
+                    opt_args.insert(v.clone());
+                    fs::File::open(&v).ok()
+                }
+            },
+            None => { 
+                println!("ERROR: Expected file parameter after 'keys' parameter");
+                print_usage_and_panic(app_name, opts);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    
+    let free_args = get_free_args(opt_args, matches.free);
+
+    let prop_filename;
+    let result_filename;
+    match free_args.len() {
+        1 => {
+            // Replace vars in the provided file
+            prop_filename = &free_args[0];
+            result_filename = &free_args[0];
+        },
+        2 => {
+            // Replace vars into a separate output file
+            prop_filename = &free_args[0];
+            result_filename = &free_args[1];
+        },
+        _ => {
+            println!("Wrong number of file parameters: {}", free_args.len());
+            print_usage(&*arg_parser.application_name, &arg_parser.opts);
+            return;
+        }
+    }
+
+    let prop_file = fs::File::open(&prop_filename);//  open_file(&prop_filename);
     let mut result_file = fs::File::create(result_filename).unwrap();
-  /*  for line in process(prop_file, &extract_keys(key_file)).iter().enumerate() {
-        println!("{}: {}", line.0, line.1);
-        result_file.write_all(&format!("{}\n", line.1).as_bytes()).unwrap();
-    }*/
+   
+    key_file.map(|k| {
+        for line in process(prop_file.unwrap(), &extract_keys(k)).iter().enumerate() {
+            println!("{}: {}", line.0, line.1);
+            result_file.write_all(&format!("{}\n", line.1).as_bytes()).unwrap();
+        }
+    });
 }
