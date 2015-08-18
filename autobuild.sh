@@ -1,1 +1,1 @@
-find src/ | entr -c bash -c "cargo run -- -k test.keys -p test.properties result.properties"
+find src/ | entr -c bash -c "cargo run -- -p -k test.keys test.properties result.properties"

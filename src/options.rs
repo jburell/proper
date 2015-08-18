@@ -1,10 +1,10 @@
 extern crate getopts;
 use getopts::Options;
 use std::{env};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashSet};
 use std::process;
 
-pub struct ApplicationOptions {
+pub struct OptionsAndFlags {
     opts: Options,
     flags: HashSet<String>,
 }
@@ -24,9 +24,9 @@ pub trait OptionManagement {
     fn usage(&self, &str) -> String;
 }
 
-impl OptionManagement for ApplicationOptions {
+impl OptionManagement for OptionsAndFlags {
     fn new() -> Self {
-        ApplicationOptions {
+        OptionsAndFlags {
             opts: Options::new(),
             flags: HashSet::new(),
         }
@@ -78,37 +78,47 @@ impl OptionManagement for ApplicationOptions {
     }
 }
 
-pub struct ArgOpts {
+pub struct ApplicationOptions {
     application_name: String,
-    opts: ApplicationOptions,
+    opts: OptionsAndFlags,
 }
 
-pub trait ParseOptions {
+pub trait ParseResult {
     fn new<F>(setup_func: F) -> Self
-        where F: FnOnce() -> Result<ApplicationOptions, String>;
+        where F: FnOnce() -> Result<OptionsAndFlags, String>;
     fn print_usage(&self);
     fn print_usage_and_panic(&self);
     fn has_option(&self, opt: &str) -> bool;
     fn parse(&self) -> Result<getopts::Matches, String>;
 }
 
-impl ParseOptions for ArgOpts {
+impl ParseResult for ApplicationOptions {
     fn new<F>(setup_func: F) -> Self  
-        where F: FnOnce() -> Result<ApplicationOptions, String> {
-        ArgOpts {
+        where F: FnOnce() -> Result<OptionsAndFlags, String> {
+        ApplicationOptions {
             application_name: env::args().next().unwrap(),
             opts: setup_func().unwrap(),
         }
     }
 
     fn print_usage(&self) {
-        let brief = format!("Usage: {} [OPTIONS] <property-file> <result-file>", self.application_name);
-        print!("{}", self.opts.usage(&*brief));
+        let brief = 
+            format!("\nUsage:\n \
+            Alt 1: {0} [OPTIONS] <property-file> <result-file>\n \
+            Alt 2: {0} [OPTIONS] <property-file> \
+            (will replace vars in property-file)\n\n\
+            About:\n\
+            This tool replaces occurances of ${{<VAR>}} \
+            in the property-file and replaces them either with environment \
+            variables or from keyfile (if fiven). \
+            Format in keyfile is: VAR=VALUE.", 
+            self.application_name);
+        print!("ERROR: {}\n", self.opts.usage(&*brief));
     }
 
     fn print_usage_and_panic(&self) {
         self.print_usage();
-        panic!();
+        process::exit(1);
     }
 
     fn has_option(&self, opt: &str) -> bool {
@@ -132,7 +142,6 @@ impl ParseOptions for ArgOpts {
         }
 
         Ok(matches)
-        
     }
 }
 
