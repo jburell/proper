@@ -110,7 +110,7 @@ impl ParseResult for ApplicationOptions {
             About:\n\
             This tool replaces occurances of ${{<VAR>}} \
             in the property-file and replaces them either with environment \
-            variables or from keyfile (if fiven). \
+            variables or from keyfile (if given). \
             Format in keyfile is: VAR=VALUE.", 
             self.application_name);
         print!("ERROR: {}\n", self.opts.usage(&*brief));
