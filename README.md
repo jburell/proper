@@ -3,6 +3,7 @@ A simple application to substitute properties with values from environment
 variables or key/value files.
 
 ### Basic usage
+```
 Usage:
  Alt 1: target/release/proper [OPTIONS] <property-file> <result-file>
  Alt 2: target/release/proper [OPTIONS] <property-file> (will replace vars in property-file)
@@ -15,4 +16,4 @@ Options:
     -p --props-first    properties takes precedence over environment variables
                         (default: off)
     -? --help           print this help menu
-
+```
