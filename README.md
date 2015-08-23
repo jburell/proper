@@ -1,8 +1,9 @@
 # proper
+[![Build Status](https://travis-ci.org/jburell/proper.svg?branch=master)](https://travis-ci.org/jburell/proper)
 A simple application to substitute properties with values from environment 
 variables or key/value files.
 
-## Basic usage
+### Basic usage
 Usage:
  Alt 1: target/release/proper [OPTIONS] <property-file> <result-file>
  Alt 2: target/release/proper [OPTIONS] <property-file> (will replace vars in property-file)
