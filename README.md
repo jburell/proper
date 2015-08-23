@@ -1,5 +1,4 @@
-# proper
-[![Build Status](https://travis-ci.org/jburell/proper.svg?branch=master)](https://travis-ci.org/jburell/proper)
+# proper [![Build Status](https://travis-ci.org/jburell/proper.svg?branch=master)](https://travis-ci.org/jburell/proper)
 A simple application to substitute properties with values from environment 
 variables or key/value files.
 
