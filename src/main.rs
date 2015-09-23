@@ -26,12 +26,12 @@ fn replace_var(line: String,
                props_first: bool,
                used_keys: &mut HashMap<&'static str, Vec<(String, String)>>,
                result: &mut Vec<String>) {
-   let re = regex!(r"(?P<full>\$\{\s*(?P<var>\S*)\s*\})");
+   let re = regex!(r"(?P<full>\$\{\s*(?P<var>[^\}]*)\s*\})");
    let mut str_line: String = line.clone();
 
    for cap in re.captures_iter(&*str_line.clone()) {
        cap.name("var").map(|v| {
-           let env_prop = env_or_prop(v, 
+           let env_prop = env_or_prop(v.trim(), 
                                       props_first, 
                                       keys.clone()).map(|v2|{
                                           str_line = re.replace(
