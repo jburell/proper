@@ -168,7 +168,7 @@ struct ValueAndSource {
 
 fn insert_if_not_exist(dict: &mut HashMap<String, ValueAndSource>,
                        matches: HashMap<String, String>,
-                      filename: String) {
+                       filename: String) {
     for key_val in matches.iter() {
         let key: String = (*key_val.0).clone();
         let val: String = (*key_val.1).clone();
@@ -197,6 +197,97 @@ fn read_keyfiles_and_generate_dict(key_filenames: Vec<String>)
         0 => None,
         _ => Some(dict),
     }
+}
+
+
+
+fn open_file(arg_parser: &ApplicationOptions, filename: &String) -> fs::File {
+    match fs::File::open(filename) {
+        Ok(f) => Some(f),
+        Err(e) => {
+            println_stderr!("ERROR: Could not open file: {}\n{}\n", filename, e);
+            arg_parser.print_usage_and_panic();
+            None
+        }
+    }
+    .unwrap()
+}
+
+struct Settings<'a> {
+    key_filenames: Vec<String>,
+    prop_filename: &'a String,
+    result_filename: &'a String,
+    props_first: bool,
+}
+
+fn calc_result(arg_parser: ApplicationOptions,
+               settings: Settings) {
+    let prop_file = open_file(&arg_parser, &settings.prop_filename);
+    let mut result_buff = Vec::new();
+    let mut used_keys = HashMap::new();
+
+    let keys = read_keyfiles_and_generate_dict(settings.key_filenames);
+
+    for line in process(prop_file, &mut used_keys, keys, settings.props_first).iter() {
+        result_buff.push(line.clone());
+    }
+
+    println!("======== RESULTS ========");
+
+    let env_vars = used_keys.get(ENV);
+    if env_vars.is_some() {
+        let vars = env_vars.unwrap();
+        println!("Environment variables:");
+        for v in vars {
+            println!("${{{}}}", v.0);
+        }
+        println!("");
+    }
+
+    let prop_vars = used_keys.get(KEY_FILE);
+    if prop_vars.is_some() {
+        let vars = prop_vars.unwrap();
+        // println!("From keyfile {}:", key_filename.unwrap()) ;
+        for v in vars {
+            println!("${{{}}}", v.0);
+        }
+        println!("");
+    }
+
+    let missing_vars = used_keys.get(MISSING);
+    if missing_vars.is_some() {
+        let vars = missing_vars.unwrap();
+        println!("Missing variables found in {}:", settings.prop_filename);
+        for v in vars {
+            println!("${{{}}}", v.0);
+        }
+        println!("");
+        println_stderr!("ERROR: Must replace all found variables\n\n");
+        process::exit(1);
+    }
+
+    if env_vars.is_none() && prop_vars.is_none() && missing_vars.is_none() {
+        println!("[No variables to substitute!]\n");
+    }
+
+    let mut result_file = match fs::File::create(settings.result_filename) {
+                              Ok(f) => Some(f),
+                              Err(e) => {
+                                  println_stderr!("ERROR: Could not open result-file: {}\n{}\n",
+                                                  settings.result_filename,
+                                                  e);
+                                  arg_parser.print_usage_and_panic();
+                                  None
+                              }
+                          }
+                          .unwrap();
+
+    for line in result_buff {
+        result_file.write_all(&format!("{}\n", line).as_bytes()).unwrap();
+    }
+    result_file.flush().unwrap();
+
+    println!("...DONE!");
 }
 
 #[allow(dead_code)]
@@ -264,92 +355,16 @@ fn main() {
         }
     }
 
-    let prop_file = match fs::File::open(&prop_filename) {
-                        Ok(f) => Some(f),
-                        Err(e) => {
-                            println_stderr!("ERROR: Could not open property-file: {}\n{}\n",
-                                            prop_filename,
-                                            e);
-                            arg_parser.print_usage_and_panic();
-                            None
-                        }
-                    }
-                    .unwrap();
-    let mut result_buff = Vec::new();
 
-    let mut used_keys = HashMap::new();
 
     let key_filenames = matches.opt_strs("k");
-    let keys = read_keyfiles_and_generate_dict(key_filenames);
-    /*{
-        let my_keys = &keys;
-        for k in my_keys {
-            for vals in k {
-                println!("key: {}, ValueAndSource: {:?}", vals.0, vals.1);
-            }
-        }
-    }*/
 
-    for line in process(prop_file, &mut used_keys, keys, props_first).iter() {
-        result_buff.push(line.clone());
-    }
-
-    println!("======== RESULTS ========");
-
-    let env_vars = used_keys.get(ENV);
-    if env_vars.is_some() {
-        let vars = env_vars.unwrap();
-        println!("Environment variables:");
-        for v in vars {
-            println!("${{{}}}", v.0);
-        }
-        println!("");
-    }
-
-    let prop_vars = used_keys.get(KEY_FILE);
-    if prop_vars.is_some() {
-        let vars = prop_vars.unwrap();
-        // println!("From keyfile {}:", key_filename.unwrap()) ;
-        for v in vars {
-            println!("${{{}}}", v.0);
-        }
-        println!("");
-    }
-
-    let missing_vars = used_keys.get(MISSING);
-    if missing_vars.is_some() {
-        let vars = missing_vars.unwrap();
-        println!("Missing variables found in {}:", prop_filename);
-        for v in vars {
-            println!("${{{}}}", v.0);
-        }
-        println!("");
-        println_stderr!("ERROR: Must replace all found variables\n\n");
-        process::exit(1);
-    }
-
-    if env_vars.is_none() && prop_vars.is_none() && missing_vars.is_none() {
-        println!("[No variables to substitute!]\n");
-    }
-
-    let mut result_file = match fs::File::create(result_filename) {
-                              Ok(f) => Some(f),
-                              Err(e) => {
-                                  println_stderr!("ERROR: Could not open result-file: {}\n{}\n",
-                                                  result_filename,
-                                                  e);
-                                  arg_parser.print_usage_and_panic();
-                                  None
-                              }
-                          }
-                          .unwrap();
-
-    for line in result_buff {
-        result_file.write_all(&format!("{}\n", line).as_bytes()).unwrap();
-    }
-    result_file.flush().unwrap();
-
-    println!("...DONE!");
+    calc_result(arg_parser, Settings {
+        key_filenames: key_filenames,
+        prop_filename: prop_filename,
+        result_filename: result_filename,
+        props_first: props_first,
+    });
 }
 
 
