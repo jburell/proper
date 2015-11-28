@@ -278,8 +278,8 @@ fn create_arg_parser() -> ApplicationOptions {
         o.parsing_style(getopts::ParsingStyle::StopAtFirstFree);
         o.opt("k",
               "keys",
-              "keyfile with variable substitutions",
-              "FILE",
+              "keyfile(s) with variable substitutions, can occur multiple times",
+              "FILE(s)",
               getopts::HasArg::Yes,
               getopts::Occur::Multi)
          .unwrap();
