@@ -27,33 +27,33 @@ fn replace_var(line: String,
                props_first: bool,
                used_keys: &mut HashMap<&'static str, Vec<(String, String)>>,
                result: &mut Vec<String>) {
-                   let re = regex!(r"(?P<full>\$\{\s*(?P<var>[^\}]*)\s*\})");
-                   let mut str_line: String = line.clone();
+    let re = regex!(r"(?P<full>\$\{\s*(?P<var>[^\}]*)\s*\})");
+    let mut str_line: String = line.clone();
 
-                   for cap in re.captures_iter(&*str_line.clone()) {
-                       cap.name("var").map(|v| {
-                           let env_prop = env_or_prop(v.trim(), props_first, keys.clone()).map(|v2| {
-                               str_line = re.replace(&*str_line, &*v2.1);
-                               (v2.0, v2.1, v2.2)
-                           });
+    for cap in re.captures_iter(&*str_line.clone()) {
+        cap.name("var").map(|v| {
+            let env_prop = env_or_prop(v.trim(), props_first, keys.clone()).map(|v2| {
+                str_line = re.replace(&*str_line, &*v2.1);
+                (v2.0, v2.1, v2.2)
+            });
 
-                           env_prop.and_then(|v2| {
-                               used_keys.get_mut(&v2.2)
-                               .and_then(|r| Some(r.push((v2.0.clone(), v2.1.clone()))))
-                               .or_else(|| {
-                                   used_keys.insert(v2.2.clone(), vec![(v2.0.clone(), v2.1.clone())]);
-                                   Some(())
-                               })
-                           })
-                       });
-                   }
-                   result.push(str_line.to_string());
-               }
+            env_prop.and_then(|v2| {
+                used_keys.get_mut(&v2.2)
+                         .and_then(|r| Some(r.push((v2.0.clone(), v2.1.clone()))))
+                         .or_else(|| {
+                             used_keys.insert(v2.2.clone(), vec![(v2.0.clone(), v2.1.clone())]);
+                             Some(())
+                         })
+            })
+        });
+    }
+    result.push(str_line.to_string());
+}
 
 fn env_or_prop(key: &str,
                props_first: bool,
                keys: &Option<HashMap<String, ValueAndSource>>)
--> Option<(String, String, &'static str)> {
+               -> Option<(String, String, &'static str)> {
     match *keys {
         Some(ref k) => {
             let prop = k.get(key).and_then(|v| Some(v.clone()));
@@ -92,15 +92,15 @@ fn env_or_prop(key: &str,
         }
         None => {
             match env::var_os(key)
-                .map(|v| v.into_string().ok())
-                .unwrap_or(None) {
-                    Some(e) => {
-                        Some((key.to_string(), e.to_string(), ENV))
-                    }
-                    None => {
-                        Some((key.to_string(), key.to_string(), MISSING))
-                    }
+                      .map(|v| v.into_string().ok())
+                      .unwrap_or(None) {
+                Some(e) => {
+                    Some((key.to_string(), e.to_string(), ENV))
                 }
+                None => {
+                    Some((key.to_string(), key.to_string(), MISSING))
+                }
+            }
         }
     }
 }
@@ -109,7 +109,7 @@ fn process(file: fs::File,
            used_keys: &mut HashMap<&'static str, Vec<(String, String)>>,
            dict: Option<HashMap<String, ValueAndSource>>,
            props_first: bool)
--> Vec<String> {
+           -> Vec<String> {
     let buf_reader = io::BufReader::new(&file);
     let mut result: Vec<String> = vec![];
 
@@ -121,7 +121,7 @@ fn process(file: fs::File,
 }
 
 fn extract_keys(file: fs::File /* key_map: Option<HashMap<String, ValueAndSource>> */)
--> HashMap<String, String> {
+                -> HashMap<String, String> {
     let key_regex = regex!(r"^\s*(?P<key>\S*)\s*=\s*(?P<val>.*)");
     let buf_reader = io::BufReader::new(&file);
     let mut keys = HashMap::new();/*,
@@ -129,35 +129,24 @@ fn extract_keys(file: fs::File /* key_map: Option<HashMap<String, ValueAndSource
 
     for line in buf_reader.lines().enumerate() {
         for cap in key_regex.captures_iter(&*line.1
-                                           .ok()
-                                           .expect("Could not read line")) {
-                                               let key = cap.name("key")
-                                                   .unwrap_or("???");
-                                               let val = cap.name("val")
-                                                   .unwrap_or("???");
-                                               if !keys.contains_key(key) {
-                                                   keys.insert(key.to_string(),
-                                                   // ValueAndSource {
-                                                   // value:
-                                                   val.to_string() /* ,
-                                                                    * source: "".to_string(),
-                                                                    * } */);
-                                               }
-                                           }
-    }
-
-keys
-}
-
-fn free_args(flag_args: HashSet<String>, free_args: &Box<getopts::Matches>) -> Vec<String> {
-    let mut result = Vec::new();
-    for a in (*free_args).free.iter() {
-        if !flag_args.contains(a) {
-            result.push(a.clone());
+                                                 .ok()
+                                                 .expect("Could not read line")) {
+            let key = cap.name("key")
+                         .unwrap_or("???");
+            let val = cap.name("val")
+                         .unwrap_or("???");
+            if !keys.contains_key(key) {
+                keys.insert(key.to_string(),
+                            // ValueAndSource {
+                            // value:
+                            val.to_string() /* ,
+                                             * source: "".to_string(),
+                                             * } */);
+            }
         }
     }
 
-    result
+    keys
 }
 
 #[derive(Debug)]
@@ -169,21 +158,21 @@ struct ValueAndSource {
 fn insert_if_not_exist(dict: &mut HashMap<String, ValueAndSource>,
                        matches: HashMap<String, String>,
                        filename: String) {
-                           for key_val in matches.iter() {
-                               let key: String = (*key_val.0).clone();
-                               let val: String = (*key_val.1).clone();
-                               if !dict.contains_key(&key) {
-                                   dict.insert(key,
-                                               ValueAndSource {
-                                                   value: val,
-                                                   source: filename.clone(),
-                                               });
-                               }
-                           }
-                       }
+    for key_val in matches.iter() {
+        let key: String = (*key_val.0).clone();
+        let val: String = (*key_val.1).clone();
+        if !dict.contains_key(&key) {
+            dict.insert(key,
+                        ValueAndSource {
+                            value: val,
+                            source: filename.clone(),
+                        });
+        }
+    }
+}
 
 fn read_keyfiles_and_generate_dict(key_filenames: Vec<String>)
--> Option<HashMap<String, ValueAndSource>> {
+                                   -> Option<HashMap<String, ValueAndSource>> {
     let mut dict: HashMap<String, ValueAndSource> = HashMap::new();
     for filename in key_filenames {
         fs::File::open(&filename)
@@ -231,7 +220,7 @@ struct Settings<'a> {
     props_first: bool,
 }
 
-fn calc_result(arg_parser: & ApplicationOptions, settings: Settings) {
+fn calc_result(arg_parser: &ApplicationOptions, settings: Settings) {
     let prop_file = open_file(&arg_parser, &settings.prop_filename);
     let mut result_buff = Vec::new();
     let mut used_keys = HashMap::new();
@@ -300,21 +289,21 @@ fn create_arg_parser() -> ApplicationOptions {
               "FILE",
               getopts::HasArg::Yes,
               getopts::Occur::Multi)
-            .unwrap();
+         .unwrap();
         o.opt("p",
               "props-first",
               "properties takes precedence over environment variables (default: off)",
               "",
               getopts::HasArg::No,
               getopts::Occur::Optional)
-            .unwrap();
+         .unwrap();
         o.opt("?",
               "help",
               "print this help menu",
               "",
               getopts::HasArg::No,
               getopts::Occur::Optional)
-            .unwrap();
+         .unwrap();
         Ok(o)
     })
 }
@@ -325,8 +314,8 @@ struct PropAndResultFilenames<'a> {
 }
 
 fn get_prop_and_result_filename<'a>(arg_parser: &'a ApplicationOptions,
-                                free_args: &'a Vec<String>) 
--> PropAndResultFilenames<'a> {
+                                    free_args: &'a Vec<String>)
+                                    -> PropAndResultFilenames<'a> {
     match free_args.len() {
         1 => {
             // Replace vars in the provided file
@@ -350,37 +339,35 @@ fn get_prop_and_result_filename<'a>(arg_parser: &'a ApplicationOptions,
     }
 }
 
-#[allow(dead_code)]
-fn main() {
-    let arg_parser: ApplicationOptions = create_arg_parser();
-
-    let matches: Box<getopts::Matches> = Box::new(arg_parser.parse().unwrap_or_else(|e| {
-        println_stderr!("{}", e);
-        process::exit(1);
-    }));
-
-    let opt_args: HashSet<String> = HashSet::new();
-
-
-    let props_first = if matches.opt_present("p") {
+fn get_props_first(matches: &Box<getopts::Matches>) -> bool {
+    if matches.opt_present("p") {
         true
     } else {
         false
-    };
+    }
 
-    let free_args = free_args(opt_args, &matches);
+}
+
+fn get_parsed_args(arg_parser: &ApplicationOptions) -> Box<getopts::Matches> {
+Box::new(arg_parser.parse().unwrap_or_else(|e| {
+        println_stderr!("{}", e);
+        process::exit(1);
+    }))
+}
+
+#[allow(dead_code)]
+fn main() {
+    let arg_parser: ApplicationOptions = create_arg_parser();
+    let matches = get_parsed_args(&arg_parser);
 
     let prop_and_result_filenames = get_prop_and_result_filename(&arg_parser, 
-                                                                 &free_args);
-
-    let key_filenames = matches.opt_strs("k");
-
+                                                                 &matches.free);
     calc_result(&arg_parser,
                 Settings {
-                    key_filenames: key_filenames,
+                    key_filenames: matches.opt_strs("k"),
                     prop_filename: prop_and_result_filenames.prop_filename,
                     result_filename: prop_and_result_filenames.result_filename,
-                    props_first: props_first,
+                    props_first: get_props_first(&matches),
                 });
 }
 
@@ -406,10 +393,10 @@ mod tests {
 
         for k in keys {
             test_data.key_map.insert(k.0.to_string(),
-            ValueAndSource {
-                value: k.1.to_string(),
-                source: "".to_string(),
-            });
+                                     ValueAndSource {
+                                         value: k.1.to_string(),
+                                         source: "".to_string(),
+                                     });
         }
 
         test_data
@@ -419,10 +406,10 @@ mod tests {
     fn can_sub_single_var() {
         let mut test_data = create_test_data(vec![("val", "world!")]);
         replace_var("Hello ${val}".to_string(),
-        &Some(test_data.key_map),
-        true,
-        &mut test_data.used_keys,
-        &mut test_data.result);
+                    &Some(test_data.key_map),
+                    true,
+                    &mut test_data.used_keys,
+                    &mut test_data.result);
         assert!(test_data.result.len() == 1);
         assert!(test_data.used_keys[super::KEY_FILE][0].0 == "val".to_string());
         assert!(test_data.result[0] == "Hello world!".to_string());
