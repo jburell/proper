@@ -1,6 +1,6 @@
 extern crate regex;
 extern crate getopts;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::{env, fs, io};
 use std::io::prelude::*;
 mod options;
@@ -120,12 +120,10 @@ fn process(file: fs::File,
     result
 }
 
-fn extract_keys(file: fs::File /* key_map: Option<HashMap<String, ValueAndSource>> */)
-                -> HashMap<String, String> {
+fn extract_keys(file: fs::File) -> HashMap<String, String> {
     let key_regex = regex!(r"^\s*(?P<key>\S*)\s*=\s*(?P<val>.*)");
     let buf_reader = io::BufReader::new(&file);
-    let mut keys = HashMap::new();/*,
-                                    };*/
+    let mut keys = HashMap::new();
 
     for line in buf_reader.lines().enumerate() {
         for cap in key_regex.captures_iter(&*line.1
@@ -136,12 +134,7 @@ fn extract_keys(file: fs::File /* key_map: Option<HashMap<String, ValueAndSource
             let val = cap.name("val")
                          .unwrap_or("???");
             if !keys.contains_key(key) {
-                keys.insert(key.to_string(),
-                            // ValueAndSource {
-                            // value:
-                            val.to_string() /* ,
-                                             * source: "".to_string(),
-                                             * } */);
+                keys.insert(key.to_string(), val.to_string());
             }
         }
     }
@@ -349,7 +342,7 @@ fn get_props_first(matches: &Box<getopts::Matches>) -> bool {
 }
 
 fn get_parsed_args(arg_parser: &ApplicationOptions) -> Box<getopts::Matches> {
-Box::new(arg_parser.parse().unwrap_or_else(|e| {
+    Box::new(arg_parser.parse().unwrap_or_else(|e| {
         println_stderr!("{}", e);
         process::exit(1);
     }))
@@ -360,8 +353,7 @@ fn main() {
     let arg_parser: ApplicationOptions = create_arg_parser();
     let matches = get_parsed_args(&arg_parser);
 
-    let prop_and_result_filenames = get_prop_and_result_filename(&arg_parser, 
-                                                                 &matches.free);
+    let prop_and_result_filenames = get_prop_and_result_filename(&arg_parser, &matches.free);
     calc_result(&arg_parser,
                 Settings {
                     key_filenames: matches.opt_strs("k"),
