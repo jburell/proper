@@ -1,5 +1,7 @@
 extern crate regex;
 extern crate getopts;
+#[macro_use]
+extern crate lazy_static;
 use std::collections::{HashMap};
 use std::{env, fs, io};
 use std::io::prelude::*;
@@ -182,24 +184,24 @@ fn read_keyfiles_and_generate_dict(key_filenames: Vec<String>)
 }
 
 
-fn create_file(arg_parser: &ApplicationOptions, filename: &String) -> fs::File {
+fn create_file(filename: &String) -> fs::File {
     match fs::File::create(filename) {
         Ok(f) => Some(f),
         Err(e) => {
             println_stderr!("ERROR: Could not create file: {}\n{}\n", filename, e);
-            arg_parser.print_usage_and_panic();
+            APP.print_usage_and_panic();
             None
         }
     }
     .unwrap()
 }
 
-fn open_file(arg_parser: &ApplicationOptions, filename: &String) -> fs::File {
+fn open_file(filename: &String) -> fs::File {
     match fs::File::open(filename) {
         Ok(f) => Some(f),
         Err(e) => {
             println_stderr!("ERROR: Could not open file: {}\n{}\n", filename, e);
-            arg_parser.print_usage_and_panic();
+            APP.print_usage_and_panic();
             None
         }
     }
@@ -213,8 +215,8 @@ struct Settings<'a> {
     props_first: bool,
 }
 
-fn calc_result(arg_parser: &ApplicationOptions, settings: Settings) {
-    let prop_file = open_file(&arg_parser, &settings.prop_filename);
+fn calc_result(settings: Settings) {
+    let prop_file = open_file(&settings.prop_filename);
     let mut result_buff = Vec::new();
     let mut used_keys = HashMap::new();
 
@@ -262,7 +264,7 @@ fn calc_result(arg_parser: &ApplicationOptions, settings: Settings) {
         println!("[No variables to substitute!]\n");
     }
 
-    let mut result_file = create_file(&arg_parser, settings.result_filename);
+    let mut result_file = create_file(settings.result_filename);
 
     for line in result_buff {
         result_file.write_all(&format!("{}\n", line).as_bytes()).unwrap();
@@ -272,7 +274,7 @@ fn calc_result(arg_parser: &ApplicationOptions, settings: Settings) {
     println!("...DONE!");
 }
 
-fn create_arg_parser() -> ApplicationOptions {
+fn get_arg_parser() -> ApplicationOptions {
     ApplicationOptions::new(|| {
         let mut o = OptionsAndFlags::new();
         o.parsing_style(getopts::ParsingStyle::StopAtFirstFree);
@@ -306,8 +308,7 @@ struct PropAndResultFilenames<'a> {
     result_filename: &'a String,
 }
 
-fn get_prop_and_result_filename<'a>(arg_parser: &'a ApplicationOptions,
-                                    free_args: &'a Vec<String>)
+fn get_prop_and_result_filename<'a>(free_args: &'a Vec<String>)
                                     -> PropAndResultFilenames<'a> {
     match free_args.len() {
         1 => {
@@ -326,7 +327,7 @@ fn get_prop_and_result_filename<'a>(arg_parser: &'a ApplicationOptions,
         }
         _ => {
             println_stderr!("Wrong number of file parameters: {}", free_args.len());
-            arg_parser.print_usage();
+            APP.print_usage();
             process::exit(1);
         }
     }
@@ -341,21 +342,23 @@ fn get_props_first(matches: &Box<getopts::Matches>) -> bool {
 
 }
 
-fn get_parsed_args(arg_parser: &ApplicationOptions) -> Box<getopts::Matches> {
-    Box::new(arg_parser.parse().unwrap_or_else(|e| {
+fn get_parsed_args() -> Box<getopts::Matches> {
+    Box::new(APP.parse().unwrap_or_else(|e| {
         println_stderr!("{}", e);
         process::exit(1);
     }))
 }
 
+lazy_static! {
+    static ref APP: ApplicationOptions = get_arg_parser();
+}
+
 #[allow(dead_code)]
 fn main() {
-    let arg_parser: ApplicationOptions = create_arg_parser();
-    let matches = get_parsed_args(&arg_parser);
+    let matches = get_parsed_args();
 
-    let prop_and_result_filenames = get_prop_and_result_filename(&arg_parser, &matches.free);
-    calc_result(&arg_parser,
-                Settings {
+    let prop_and_result_filenames = get_prop_and_result_filename(&matches.free);
+    calc_result(Settings {
                     key_filenames: matches.opt_strs("k"),
                     prop_filename: prop_and_result_filenames.prop_filename,
                     result_filename: prop_and_result_filenames.result_filename,
