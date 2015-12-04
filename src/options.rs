@@ -124,7 +124,7 @@ impl ParseResult for ApplicationOptions {
             variables or from keyfile (if given). \
             Format in keyfile is: VAR=VALUE.", 
             self.application_name);
-        print!("ERROR: {}\n", self.opts.usage(&*brief));
+        print!("{}", self.opts.usage(&*brief));
     }
 
     fn print_usage_and_panic(&self) {
