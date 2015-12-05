@@ -61,6 +61,25 @@ fn replace_var(line: String,
     result.push(str_line.to_string());
 }
 
+fn no_property(key: &str, env: Option<String>) -> Option<(String, ValueAndSource)> {
+    match env {
+        Some(e) => {
+            Some((key.to_string(),
+                  ValueAndSource {
+                value: e.to_string(),
+                source: ENV.to_string(),
+            }))
+        }
+        None => {
+            Some((key.to_string(),
+                  ValueAndSource {
+                value: key.to_string(),
+                source: MISSING.to_string(),
+            }))
+        }
+    }
+}
+
 fn env_or_prop(key: &str,
                props_first: bool,
                keys: &Option<KeysAndSources>)
@@ -82,10 +101,8 @@ fn env_or_prop(key: &str,
                 (Some(prop), false) => {
                     match env {
                         Some(e) => {
-                            println!("[WARNING]: key \"${{{}}}\" from the \
-                                      file \"{}\" was overridden by an \
-                                      environment variable with the same \
-                                      name.",
+                            println!("[WARNING]: key \"${{{}}}\" from \"{}\" was overridden by an \
+                                      environment variable.",
                                      key.to_string(),
                                      prop.source);
                             Some((key.to_string(),
@@ -104,40 +121,10 @@ fn env_or_prop(key: &str,
                     }
                 }
                 (None, true) => {
-                    match env {
-                        Some(e) => {
-                            Some((key.to_string(),
-                                  ValueAndSource {
-                                value: e.to_string(),
-                                source: ENV.to_string(),
-                            }))
-                        }
-                        None => {
-                            Some((key.to_string(),
-                                  ValueAndSource {
-                                value: key.to_string(),
-                                source: MISSING.to_string(),
-                            }))
-                        }
-                    }
+                    no_property(key, env)
                 }
                 (None, false) => {
-                    match env {
-                        Some(e) => {
-                            Some((key.to_string(),
-                                  ValueAndSource {
-                                value: e.to_string(),
-                                source: ENV.to_string(),
-                            }))
-                        }
-                        None => {
-                            Some((key.to_string(),
-                                  ValueAndSource {
-                                value: key.to_string(),
-                                source: MISSING.to_string(),
-                            }))
-                        }
-                    }
+                    no_property(key, env)
                 }
             }
         }
@@ -234,8 +221,8 @@ fn insert_if_not_exist(dict: &mut HashMap<String, ValueAndSource>,
                 // keys_from_files.insert(filename.clone(), key.clone());
             }
             Occupied(e) => {
-                println!("[ERROR]: key ({}) in file ({}) tried to override the \
-                          same key from file ({})",
+                println!("[ERROR]: key ({}) in file ({}) tried to override \
+                          the same key from file ({})",
                          key,
                          filename,
                          e.get().source);
@@ -311,7 +298,8 @@ struct KeysAndSources {
     sources: Box<HashMap<String, Vec<String>>>,
 }
 
-fn print_result(used_keys: &mut HashMap<String, Vec<(String, String)>>, prop_filename: &String){
+fn print_result(used_keys: &mut HashMap<String, Vec<(String, String)>>,
+                prop_filename: &String) {
 
     println!("======== RESULTS ========");
 
@@ -348,9 +336,9 @@ fn print_result(used_keys: &mut HashMap<String, Vec<(String, String)>>, prop_fil
     }
 
     if env_vars.is_none() && used_keys.len() == 0 && missing_vars.is_none() {
-       println!("[No variables to substitute!]\n");
+        println!("[No variables to substitute!]\n");
     }
-    
+
     println!("...DONE!");
 }
 
