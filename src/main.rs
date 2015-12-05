@@ -35,27 +35,31 @@ fn replace_var(line: String,
     let mut str_line: String = line.clone();
 
     for cap in re.captures_iter(&*str_line.clone()) {
-        cap.name("var").map(|v| {
-            let env_prop = env_or_prop(v.trim(), props_first, keys).map(|v2| {
-                str_line = re.replace(&*str_line, &*(v2.1.value));
-                println!("{:?}", v2);
-                (v2.0, v2.1)
-            });
+        cap.name("var")
+           .map(|v| {
+               let env_prop = env_or_prop(v.trim(), props_first, keys)
+                                  .map(|v2| {
+                                      str_line = re.replace(&*str_line,
+                                                            &*(v2.1.value));
+                                      println!("{:?}", v2);
+                                      (v2.0, v2.1)
+                                  });
 
-            env_prop.and_then(|v2| {
-                used_keys.get_mut(&v2.1.source)
-                         .and_then(|r| {
-                             println!("r: {:?}", r);
-                             println!("v2: {:?}", v2);
-                             Some(r.push((v2.0.clone(), v2.1.value.clone())))
-                         })
-                         .or_else(|| {
-                             used_keys.insert(v2.1.source.clone(),
-                                              vec![(v2.0.clone(), v2.1.value.clone())]);
-                             Some(())
-                         })
-            })
-        });
+               env_prop.and_then(|v2| {
+                   used_keys.get_mut(&v2.1.source)
+                            .and_then(|r| {
+                                println!("r: {:?}", r);
+                                println!("v2: {:?}", v2);
+                                Some(r.push((v2.0.clone(), v2.1.value.clone())))
+                            })
+                            .or_else(|| {
+                                used_keys.insert(v2.1.source.clone(),
+                                                 vec![(v2.0.clone(),
+                                                       v2.1.value.clone())]);
+                                Some(())
+                            })
+               })
+           });
     }
     result.push(str_line.to_string());
 }
@@ -74,30 +78,31 @@ fn env_or_prop(key: &str,
                 (Some(prop), true) => {
                     Some((key.to_string(),
                           ValueAndSource {
-                              value: prop.value.clone(),
-                              source: prop.source.clone()
-                          }))
+                        value: prop.value.clone(),
+                        source: prop.source.clone(),
+                    }))
                 }
                 (Some(prop), false) => {
                     match env {
                         Some(e) => {
                             println!("[WARNING]: key \"${{{}}}\" from the \
                                       file \"{}\" was overridden by an \
-                                      environment variable with the same name",
+                                      environment variable with the same \
+                                      name.",
                                      key.to_string(),
                                      prop.source);
                             Some((key.to_string(),
                                   ValueAndSource {
-                                      value: e.to_string(),
-                                      source: ENV.to_string()
-                                  }))
+                                value: e.to_string(),
+                                source: ENV.to_string(),
+                            }))
                         }
                         None => {
                             Some((key.to_string(),
                                   ValueAndSource {
-                                      value: prop.value.clone(),
-                                      source: prop.source.clone()
-                                  }))
+                                value: prop.value.clone(),
+                                source: prop.source.clone(),
+                            }))
                         }
                     }
                 }
@@ -106,16 +111,16 @@ fn env_or_prop(key: &str,
                         Some(e) => {
                             Some((key.to_string(),
                                   ValueAndSource {
-                                      value: e.to_string(),
-                                      source: ENV.to_string()
-                                  }))
+                                value: e.to_string(),
+                                source: ENV.to_string(),
+                            }))
                         }
                         None => {
                             Some((key.to_string(),
-                                  ValueAndSource { 
-                                      value: key.to_string(),
-                                      source: MISSING.to_string()
-                                  }))
+                                  ValueAndSource {
+                                value: key.to_string(),
+                                source: MISSING.to_string(),
+                            }))
                         }
                     }
                 }
@@ -124,16 +129,16 @@ fn env_or_prop(key: &str,
                         Some(e) => {
                             Some((key.to_string(),
                                   ValueAndSource {
-                                      value: e.to_string(),
-                                      source: ENV.to_string()
-                                  }))
+                                value: e.to_string(),
+                                source: ENV.to_string(),
+                            }))
                         }
                         None => {
                             Some((key.to_string(),
                                   ValueAndSource {
-                                      value: key.to_string(),
-                                      source: MISSING.to_string()
-                                  }))
+                                value: key.to_string(),
+                                source: MISSING.to_string(),
+                            }))
                         }
                     }
                 }
@@ -144,17 +149,18 @@ fn env_or_prop(key: &str,
                       .map(|v| v.into_string().ok())
                       .unwrap_or(None) {
                 Some(e) => {
-                    Some((key.to_string(), ValueAndSource{
+                    Some((key.to_string(),
+                          ValueAndSource {
                         value: e.to_string(),
-                        source: ENV.to_string()
+                        source: ENV.to_string(),
                     }))
                 }
                 None => {
                     Some((key.to_string(),
                           ValueAndSource {
-                              value: key.to_string(),
-                              source: MISSING.to_string()
-                          }))
+                        value: key.to_string(),
+                        source: MISSING.to_string(),
+                    }))
                 }
             }
         }
@@ -231,7 +237,7 @@ fn insert_if_not_exist(dict: &mut HashMap<String, ValueAndSource>,
                 // keys_from_files.insert(filename.clone(), key.clone());
             }
             Occupied(e) => {
-                println!("ERROR: key ({}) in file ({}) tried to override the \
+                println!("[ERROR]: key ({}) in file ({}) tried to override the \
                           same key from file ({})",
                          key,
                          filename,
@@ -272,7 +278,7 @@ fn create_file(filename: &String) -> fs::File {
     match fs::File::create(filename) {
         Ok(f) => Some(f),
         Err(e) => {
-            println_stderr!("ERROR: Could not create file: {}\n{}\n",
+            println_stderr!("[ERROR]: Could not create file: {}\n{}\n",
                             filename,
                             e);
             APP.print_usage_and_panic();
@@ -286,7 +292,7 @@ fn open_file(filename: &String) -> fs::File {
     match fs::File::open(filename) {
         Ok(f) => Some(f),
         Err(e) => {
-            println_stderr!("ERROR: Could not open file: {}\n{}\n",
+            println_stderr!("[ERROR]: Could not open file: {}\n{}\n",
                             filename,
                             e);
             APP.print_usage_and_panic();
@@ -325,9 +331,9 @@ fn calc_result(settings: Settings) {
 
     println!("======== RESULTS ========");
 
-    let env_vars = used_keys.remove(ENV);
+    let env_vars = &used_keys.remove(ENV);
     if env_vars.is_some() {
-        let vars = env_vars.unwrap();
+        let vars = env_vars.clone().unwrap();
         println!("# Environment variables:");
         for v in vars {
             println!("${{{}}}", v.0);
@@ -335,26 +341,13 @@ fn calc_result(settings: Settings) {
         println!("");
     }
 
-    // let prop_vars = used_keys.get(KEY_FILE);
-    // if prop_vars.is_some() {
     for src in used_keys.iter() {
-        // let coll = prop_vars.unwrap();
-        // if keys_and_sources.is_some() {
-        //           for f in src.iter() {
         println!("# {}:", src.0);
-        for s in src.1 {
-            // if !coll.contains_key(s) {
+        let mut keys_src = src.1.clone();
+        keys_src.sort();
+        for s in keys_src {
             println!("${{{}}}", s.0);
-            // }
         }
-        // println!("");
-        //         }
-        // }
-        // let vars = prop_vars.unwrap();
-        // / println!("From keyfile {}:", key_filename.unwrap()) ;
-        // for v in vars {
-        //    println!("${{{}}}", v.0);
-        // }
         println!("");
     }
 
@@ -370,9 +363,9 @@ fn calc_result(settings: Settings) {
         process::exit(1);
     }
 
-    // if env_vars.is_none() && prop_vars.is_none() && missing_vars.is_none() {
-    //    println!("[No variables to substitute!]\n");
-    // }
+    if env_vars.is_none() && used_keys.len() == 0 && missing_vars.is_none() {
+       println!("[No variables to substitute!]\n");
+    }
 
     let mut result_file = create_file(settings.result_filename);
 
