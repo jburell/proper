@@ -41,15 +41,12 @@ fn replace_var(line: String,
                                   .map(|v2| {
                                       str_line = re.replace(&*str_line,
                                                             &*(v2.1.value));
-                                      println!("{:?}", v2);
                                       (v2.0, v2.1)
                                   });
 
                env_prop.and_then(|v2| {
                    used_keys.get_mut(&v2.1.source)
                             .and_then(|r| {
-                                println!("r: {:?}", r);
-                                println!("v2: {:?}", v2);
                                 Some(r.push((v2.0.clone(), v2.1.value.clone())))
                             })
                             .or_else(|| {
@@ -314,20 +311,7 @@ struct KeysAndSources {
     sources: Box<HashMap<String, Vec<String>>>,
 }
 
-fn calc_result(settings: Settings) {
-    let prop_file = open_file(&settings.prop_filename);
-    let mut result_buff = Vec::new();
-    let mut used_keys = HashMap::new();
-    let keys_and_sources = read_keyfiles_to_dict(settings.key_filenames);
-
-    let processed_buffer = process(prop_file,
-                                   &mut used_keys,
-                                   &keys_and_sources,
-                                   settings.props_first);
-
-    for line in processed_buffer.iter() {
-        result_buff.push(line.clone());
-    }
+fn print_result(used_keys: &mut HashMap<String, Vec<(String, String)>>, prop_filename: &String){
 
     println!("======== RESULTS ========");
 
@@ -354,7 +338,7 @@ fn calc_result(settings: Settings) {
     let missing_vars = used_keys.get(MISSING);
     if missing_vars.is_some() {
         let vars = missing_vars.unwrap();
-        println!("Missing variables found in {}:", settings.prop_filename);
+        println!("Missing variables found in {}:", prop_filename);
         for v in vars {
             println!("${{{}}}", v.0);
         }
@@ -366,6 +350,25 @@ fn calc_result(settings: Settings) {
     if env_vars.is_none() && used_keys.len() == 0 && missing_vars.is_none() {
        println!("[No variables to substitute!]\n");
     }
+    
+    println!("...DONE!");
+}
+
+fn calc_result(settings: Settings) {
+    let prop_file = open_file(&settings.prop_filename);
+    let mut result_buff = Vec::new();
+    let mut used_keys = HashMap::new();
+    let keys_and_sources = read_keyfiles_to_dict(settings.key_filenames);
+
+    let processed_buffer = process(prop_file,
+                                   &mut used_keys,
+                                   &keys_and_sources,
+                                   settings.props_first);
+
+    for line in processed_buffer.iter() {
+        result_buff.push(line.clone());
+    }
+
 
     let mut result_file = create_file(settings.result_filename);
 
@@ -374,7 +377,7 @@ fn calc_result(settings: Settings) {
     }
     result_file.flush().unwrap();
 
-    println!("...DONE!");
+    print_result(&mut used_keys, settings.prop_filename);
 }
 
 fn get_arg_parser() -> ApplicationOptions {
