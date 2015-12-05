@@ -61,7 +61,9 @@ fn replace_var(line: String,
     result.push(str_line.to_string());
 }
 
-fn no_property(key: &str, env: Option<String>) -> Option<(String, ValueAndSource)> {
+fn no_property(key: &str,
+               env: Option<String>)
+               -> Option<(String, ValueAndSource)> {
     match env {
         Some(e) => {
             Some((key.to_string(),
@@ -101,8 +103,9 @@ fn env_or_prop(key: &str,
                 (Some(prop), false) => {
                     match env {
                         Some(e) => {
-                            println!("[WARNING]: key \"${{{}}}\" from \"{}\" was overridden by an \
-                                      environment variable.",
+                            println!("[WARNING]: key \"${{{}}}\" from \"{}\" \
+                                      was overridden by an environment \
+                                      variable.",
                                      key.to_string(),
                                      prop.source);
                             Some((key.to_string(),
@@ -482,26 +485,30 @@ mod tests {
     use super::replace_var;
     use std::collections::HashMap;
     use super::ValueAndSource;
+    use super::KeysAndSources;
 
     struct TestData {
-        key_map: HashMap<String, ValueAndSource>,
-        used_keys: HashMap<&'static str, Vec<(String, String)>>,
+        key_map: KeysAndSources, 
+        used_keys: HashMap<String, Vec<(String, String)>>,
         result: Vec<String>,
     }
 
     fn create_test_data(keys: Vec<(&str, &str)>) -> TestData {
         let mut test_data = TestData {
-            key_map: HashMap::new(),
+            key_map: KeysAndSources {
+                dictionary: Box::new(HashMap::new()),
+                sources: Box::new(HashMap::new()),
+            },
             used_keys: HashMap::new(),
             result: Vec::new(),
         };
 
         for k in keys {
-            test_data.key_map.insert(k.0.to_string(),
-                                     ValueAndSource {
-                                         value: k.1.to_string(),
-                                         source: "".to_string(),
-                                     });
+            test_data.key_map.dictionary.insert(k.0.to_string(),
+                                                ValueAndSource {
+                                                    value: k.1.to_string(),
+                                                    source: "source_file".to_string(),
+                                                });
         }
 
         test_data
@@ -516,7 +523,7 @@ mod tests {
                     &mut test_data.used_keys,
                     &mut test_data.result);
         assert!(test_data.result.len() == 1);
-        assert!(test_data.used_keys[super::KEY_FILE][0].0 == "val".to_string());
+        assert!(test_data.used_keys["source_file"][0].0 == "val".to_string());
         assert!(test_data.result[0] == "Hello world!".to_string());
     }
 }
