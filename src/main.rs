@@ -33,13 +33,15 @@ fn replace_var(line: String,
                result: &mut Vec<String>) {
     let re = regex!(r"(?P<full>\$\{\s*(?P<var>[^\}]*)\s*\})");
     let mut str_line: String = line.clone();
-
-    for cap in re.captures_iter(&*str_line.clone()) {
+    let mut splits: Vec<&str> = line.split("#").collect();
+    let mut split_line: String = splits[0].to_string();
+    
+    for cap in re.captures_iter(&*split_line) {
         cap.name("var")
            .map(|v| {
                let env_prop = env_or_prop(v.trim(), props_first, keys)
                                   .map(|v2| {
-                                      str_line = re.replace(&*str_line,
+                                      str_line = re.replace(&*split_line,
                                                             &*(v2.1.value));
                                       (v2.0, v2.1)
                                   });
@@ -175,10 +177,12 @@ fn extract_keys(file: fs::File) -> HashMap<String, String> {
     let mut keys = HashMap::new();
 
     for line in buf_reader.lines().enumerate() {
-        for cap in key_regex.captures_iter(&*line.1
-                                                 .ok()
-                                                 .expect("Could not read \
-                                                          line")) {
+        let curr_line: String = line.1.unwrap();
+        let splits: Vec<&str> = curr_line.split("#").collect();
+        //&*line.1
+        //      .ok()
+        //      .expect("Could not read line");
+        for cap in key_regex.captures_iter(splits[0]) {
             let key = cap.name("key")
                          .unwrap_or("???");
             let val = cap.name("val")
@@ -316,6 +320,8 @@ fn print_result(used_keys: &mut HashMap<String, Vec<(String, String)>>,
         println!("");
     }
 
+    let missing_vars = used_keys.remove(MISSING);
+
     for src in used_keys.iter() {
         println!("# {}:", src.0);
         let mut keys_src = src.1.clone();
@@ -326,7 +332,6 @@ fn print_result(used_keys: &mut HashMap<String, Vec<(String, String)>>,
         println!("");
     }
 
-    let missing_vars = used_keys.get(MISSING);
     if missing_vars.is_some() {
         let vars = missing_vars.unwrap();
         println!("Missing variables found in {}:", prop_filename);
@@ -488,7 +493,7 @@ mod tests {
     use super::KeysAndSources;
 
     struct TestData {
-        key_map: KeysAndSources, 
+        key_map: KeysAndSources,
         used_keys: HashMap<String, Vec<(String, String)>>,
         result: Vec<String>,
     }
@@ -507,7 +512,8 @@ mod tests {
             test_data.key_map.dictionary.insert(k.0.to_string(),
                                                 ValueAndSource {
                                                     value: k.1.to_string(),
-                                                    source: "source_file".to_string(),
+                                                    source: "source_file"
+                                                                .to_string(),
                                                 });
         }
 

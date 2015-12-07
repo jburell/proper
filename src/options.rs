@@ -79,20 +79,9 @@ impl OptionManagement for OptionsAndFlags {
 }
 
 pub struct ApplicationOptions {
-//    instance: Box<ApplicationOptions>,
     application_name: String,
     opts: OptionsAndFlags,
 }
-
-/*trait Singleton {
-    fn instance<T>(&self) -> T;
-}
-
-pub impl Singleton for ApplicationOptions {
-    fn instance<ApplicationOptions>(&self) -> ApplicationOptions {
-        return *self.instance; 
-    }
-}*/
 
 pub trait ParseResult {
     fn new<F>(setup_func: F) -> Self
