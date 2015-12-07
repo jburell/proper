@@ -22,7 +22,6 @@ macro_rules! println_stderr(
 
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const KEY_FILE: &'static str = "KEY_FILE";
 const ENV: &'static str = "ENV";
 const MISSING: &'static str = "Missing properties";
 
@@ -33,9 +32,9 @@ fn replace_var(line: String,
                result: &mut Vec<String>) {
     let re = regex!(r"(?P<full>\$\{\s*(?P<var>[^\}]*)\s*\})");
     let mut str_line: String = line.clone();
-    let mut splits: Vec<&str> = line.split("#").collect();
-    let mut split_line: String = splits[0].to_string();
-    
+    let splits: Vec<&str> = line.split("#").collect();
+    let split_line: String = splits[0].to_string();
+
     for cap in re.captures_iter(&*split_line) {
         cap.name("var")
            .map(|v| {
@@ -179,9 +178,6 @@ fn extract_keys(file: fs::File) -> HashMap<String, String> {
     for line in buf_reader.lines().enumerate() {
         let curr_line: String = line.1.unwrap();
         let splits: Vec<&str> = curr_line.split("#").collect();
-        //&*line.1
-        //      .ok()
-        //      .expect("Could not read line");
         for cap in key_regex.captures_iter(splits[0]) {
             let key = cap.name("key")
                          .unwrap_or("???");
@@ -250,7 +246,7 @@ fn read_keyfiles_to_dict(key_filenames: Vec<String>) -> Option<KeysAndSources> {
                                     &mut keys_from_files,
                                     v,
                                     filename);
-            });
+            }).unwrap();
     }
 
     match dict.len() {
@@ -258,7 +254,7 @@ fn read_keyfiles_to_dict(key_filenames: Vec<String>) -> Option<KeysAndSources> {
         _ => {
             Some(KeysAndSources {
                 dictionary: Box::new(dict),
-                sources: Box::new(keys_from_files),
+                //sources: Box::new(keys_from_files),
             })
         }
     }
@@ -302,7 +298,7 @@ struct Settings<'a> {
 
 struct KeysAndSources {
     dictionary: Box<HashMap<String, ValueAndSource>>,
-    sources: Box<HashMap<String, Vec<String>>>,
+    //sources: Box<HashMap<String, Vec<String>>>,
 }
 
 fn print_result(used_keys: &mut HashMap<String, Vec<(String, String)>>,
@@ -502,7 +498,7 @@ mod tests {
         let mut test_data = TestData {
             key_map: KeysAndSources {
                 dictionary: Box::new(HashMap::new()),
-                sources: Box::new(HashMap::new()),
+                //sources: Box::new(HashMap::new()),
             },
             used_keys: HashMap::new(),
             result: Vec::new(),
