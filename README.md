@@ -14,8 +14,10 @@ About:
 This tool replaces occurances of ${<VAR>} in the property-file and replaces them either with environment variables or from keyfile (if given). Format in keyfile is: VAR=VALUE.
 
 Options:
-    -k --keys FILE      keyfile(s) with variable substitutions, can occur multiple times
+    -k --keys FILE(s)   keyfile(s) with variable substitutions, can occur
+                        multiple times
     -p --props-first    properties takes precedence over environment variables
                         (default: off)
     -? --help           print this help menu
+    -V --version        prints current version number
 ```
