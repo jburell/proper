@@ -9,6 +9,7 @@ mod options;
 use options::*;
 use std::process;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::hash_map::{Entry};
 
 macro_rules! regex { ($re:expr) => { ::regex::Regex::new($re).unwrap() } }
 macro_rules! println_stderr(
@@ -61,7 +62,7 @@ fn replace_var(line: String,
 
     let mut res_line = str_line.to_string();
     for s in splits.split_off(1) {
-        res_line = res_line + "#" + s; 
+        res_line = res_line + "#" + s;
     }
 
     result.push(res_line);
@@ -129,12 +130,8 @@ fn env_or_prop(key: &str,
                         }
                     }
                 }
-                (None, true) => {
-                    no_property(key, env)
-                }
-                (None, false) => {
-                    no_property(key, env)
-                }
+                (None, true) => no_property(key, env),
+                (None, false) => no_property(key, env),
             }
         }
         &None => {
@@ -204,43 +201,88 @@ struct ValueAndSource {
     source: String,
 }
 
-fn insert_if_not_exist(dict: &mut HashMap<String, ValueAndSource>,
-                       keys_from_files: &mut HashMap<String, Vec<String>>,
-                       matches: HashMap<String, String>,
-                       filename: String) {
-    for key_val in matches.iter() {
-        let key: String = (*key_val.0).clone();
-        let val: String = (*key_val.1).clone();
-        match dict.entry(key.clone()) { 
-            Vacant(e) => {
-                e.insert(ValueAndSource {
-                    value: val,
-                    source: filename.clone(),
-                });
-                match keys_from_files.entry(filename.clone()) {
-                    Vacant(k) => {
-                        k.insert(vec![key.clone()]);
-                    }
-                    Occupied(mut k) => {
-                        k.get_mut().push(key.clone());
-                    }
+fn insert_key(entry: Entry<String, ValueAndSource>,
+              keys_from_files: &mut HashMap<String, Vec<String>>,
+              val: String,
+              source: String,
+              key: String) {
+    match entry {
+        Vacant(e) => {
+            e.insert(ValueAndSource {
+                value: val.clone(),
+                source: source.clone(),
+            });
+            match keys_from_files.entry(source) {
+                Vacant(k) => {
+                    k.insert(vec![key]);
                 }
-
-                // keys_from_files.insert(filename.clone(), key.clone());
+                Occupied(mut k) => {
+                    k.get_mut().push(key);
+                }
             }
-            Occupied(e) => {
-                println!("[ERROR]: key ({}) in file ({}) tried to override \
-                          the same key from file ({})",
-                         key,
-                         filename,
-                         e.get().source);
-                process::exit(1);
+        },
+        Occupied(mut e) => {
+            e.insert(ValueAndSource {
+                value: val.clone(),
+                source: source.clone(),
+            });
+            match keys_from_files.entry(source) {
+                Vacant(k) => {
+                    k.insert(vec![key]);
+                }
+                Occupied(mut k) => {
+                    k.get_mut().push(key);
+                }
             }
         }
     }
 }
 
-fn read_keyfiles_to_dict(key_filenames: Vec<String>) -> Option<KeysAndSources> {
+fn insert_if_not_exist(dict: &mut HashMap<String, ValueAndSource>,
+                       keys_from_files: &mut HashMap<String, Vec<String>>,
+                       matches: HashMap<String, String>,
+                       filename: String,
+                       shadow: bool) {
+    for key_val in matches.iter() {
+        let key: String = (*key_val.0).clone();
+        let val: String = (*key_val.1).clone();
+        match dict.entry(key.clone()) { 
+            Vacant(e) => {
+                insert_key(Vacant(e),
+                           keys_from_files,
+                           val,
+                           filename.clone(),
+                           key.clone());
+                // keys_from_files.insert(filename.clone(), key.clone());
+            },
+            Occupied(e) => {
+                if shadow {
+                    println!("[WARN]: key ({}) in file ({}) overrides the \
+                              same key from file ({})",
+                             key,
+                             filename,
+                             e.get().source);
+                    insert_key(Occupied(e),
+                               keys_from_files,
+                               val,
+                               filename.clone(),
+                               key.clone());
+                } else {
+                    println!("[ERROR]: key ({}) in file ({}) tried to \
+                              override the same key from file ({})",
+                             key,
+                             filename,
+                             e.get().source);
+                    process::exit(1);
+                }
+            }
+        }
+    }
+}
+
+fn read_keyfiles_to_dict(key_filenames: Vec<String>,
+                         shadow: bool)
+                         -> Option<KeysAndSources> {
     let mut dict: HashMap<String, ValueAndSource> = HashMap::new();
     let mut keys_from_files = HashMap::new();
     for filename in key_filenames {
@@ -250,16 +292,17 @@ fn read_keyfiles_to_dict(key_filenames: Vec<String>) -> Option<KeysAndSources> {
                 insert_if_not_exist(&mut dict,
                                     &mut keys_from_files,
                                     v,
-                                    filename);
-            }).unwrap();
+                                    filename,
+                                    shadow);
+            })
+            .unwrap();
     }
 
     match dict.len() {
         0 => None,
         _ => {
             Some(KeysAndSources {
-                dictionary: Box::new(dict),
-                //sources: Box::new(keys_from_files),
+                dictionary: Box::new(dict), /* sources: Box::new(keys_from_files), */
             })
         }
     }
@@ -299,11 +342,11 @@ struct Settings<'a> {
     prop_filename: &'a String,
     result_filename: &'a String,
     props_first: bool,
+    shadow: bool,
 }
 
 struct KeysAndSources {
-    dictionary: Box<HashMap<String, ValueAndSource>>,
-    //sources: Box<HashMap<String, Vec<String>>>,
+    dictionary: Box<HashMap<String, ValueAndSource>>, /* sources: Box<HashMap<String, Vec<String>>>, */
 }
 
 fn print_result(used_keys: &mut HashMap<String, Vec<(String, String)>>,
@@ -355,7 +398,8 @@ fn calc_result(settings: Settings) {
     let prop_file = open_file(&settings.prop_filename);
     let mut result_buff = Vec::new();
     let mut used_keys = HashMap::new();
-    let keys_and_sources = read_keyfiles_to_dict(settings.key_filenames);
+    let keys_and_sources = read_keyfiles_to_dict(settings.key_filenames,
+                                                 settings.shadow);
 
     let processed_buffer = process(prop_file,
                                    &mut used_keys,
@@ -393,6 +437,15 @@ fn get_arg_parser() -> ApplicationOptions {
               "props-first",
               "properties takes precedence over environment variables \
                (default: off)",
+              "",
+              getopts::HasArg::No,
+              getopts::Occur::Optional)
+         .unwrap();
+        o.opt("s",
+              "shadow-keys",
+              "When using multiple keyfiles, key-values will overshadow each \
+               other. Default is that multiple values for one key throws an \
+               error.",
               "",
               getopts::HasArg::No,
               getopts::Occur::Optional)
@@ -482,6 +535,7 @@ fn main() {
         prop_filename: prop_and_result_filenames.prop_filename,
         result_filename: prop_and_result_filenames.result_filename,
         props_first: get_props_first(&matches),
+        shadow: matches.opt_present("s"),
     });
 }
 
@@ -502,8 +556,7 @@ mod tests {
     fn create_test_data(keys: Vec<(&str, &str)>) -> TestData {
         let mut test_data = TestData {
             key_map: KeysAndSources {
-                dictionary: Box::new(HashMap::new()),
-                //sources: Box::new(HashMap::new()),
+                dictionary: Box::new(HashMap::new()), /* sources: Box::new(HashMap::new()), */
             },
             used_keys: HashMap::new(),
             result: Vec::new(),

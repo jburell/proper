@@ -1,4 +1,5 @@
 OTHER = My key val
 test_val = testvärde
 PROP1=www.google.se
+PROP2=from test.keys
 VAL=12355
