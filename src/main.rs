@@ -38,10 +38,10 @@ fn replace_var(line: String,
     for cap in re.captures_iter(&*str_line.clone()) {
         cap.name("var")
            .map(|v| {
-               let env_prop = env_or_prop(v.trim(), props_first, keys)
+               let env_prop = env_or_prop(v.as_str().trim(), props_first, keys)
                                   .map(|v2| {
                                       str_line = re.replace(&*str_line,
-                                                            &*(v2.1.value));
+                                                            &*(v2.1.value)).to_string();
                                       (v2.0, v2.1)
                                   });
 
@@ -181,10 +181,8 @@ fn extract_keys(file: fs::File) -> HashMap<String, String> {
         let curr_line: String = line.1.unwrap();
         let splits: Vec<&str> = curr_line.split("#").collect();
         for cap in key_regex.captures_iter(splits[0]) {
-            let key = cap.name("key")
-                         .unwrap_or("???");
-            let val = cap.name("val")
-                         .unwrap_or("???");
+            let key = cap.name("key").map_or("???", |m| m.as_str());
+            let val = cap.name("val").map_or("???", |m| m.as_str());
             if !keys.contains_key(key) {
                 keys.insert(key.to_string(), val.to_string());
             }
@@ -476,13 +474,13 @@ struct PropAndResultFilenames<'a> {
 fn get_prop_and_result_filename<'a>(free_args: &'a Vec<String>)
                                     -> PropAndResultFilenames<'a> {
     match free_args.len() {
-        1 => {
+        /*1 => {
             // Replace vars in the provided file
             PropAndResultFilenames {
                 prop_filename: &free_args[0],
                 result_filename: &free_args[0],
             }
-        }
+        }*/
         2 => {
             // Replace vars into a separate output file
             PropAndResultFilenames {
@@ -491,8 +489,8 @@ fn get_prop_and_result_filename<'a>(free_args: &'a Vec<String>)
             }
         }
         _ => {
-            println_stderr!("Wrong number of file parameters: {}",
-                            free_args.len());
+            println_stderr!("ERROR: Wrong number of file parameters: {}, expected: {}",
+                            free_args.len(), 2);
             APP.print_usage();
             process::exit(1);
         }

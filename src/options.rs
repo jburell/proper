@@ -104,13 +104,11 @@ impl ParseResult for ApplicationOptions {
     fn print_usage(&self) {
         let brief = 
             format!("\nUsage:\n \
-            Alt 1: {0} [OPTIONS] <property-file> <result-file>\n \
-            Alt 2: {0} [OPTIONS] <property-file> \
-            (will replace vars in property-file)\n\n\
-            About:\n\
+            {0} [OPTIONS] <property-file> <result-file>\n\n\
+            About:\n \
             This tool replaces occurances of ${{<VAR>}} \
-            in the property-file and replaces them either with environment \
-            variables or from keyfile (if given). \
+            in the property-file and replaces them\n either with environment \
+            variables or from keyfile (if given).\n \
             Format in keyfile is: VAR=VALUE.", 
             self.application_name);
         print!("{}", self.opts.usage(&*brief));

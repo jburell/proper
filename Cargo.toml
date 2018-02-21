@@ -1,9 +1,9 @@
 [package]
 name = "proper"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["jburell <johan.burell@gmail.com>"]
 
 [dependencies]
-regex = "0.1.41"
+regex = "0.2.6"
 getopts = "0.2.11"
 lazy_static = "0.1.15"
