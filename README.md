@@ -10,7 +10,9 @@ Usage:
  proper [OPTIONS] <property-file> <result-file>
 
 About:
-This tool replaces occurances of ${<VAR>} in the property-file and replaces them either with environment variables or from keyfile (if given). Format in keyfile is: VAR=VALUE.
+This tool replaces occurances of ${<VAR>} in the property-file and replaces them
+either with environment variables or from keyfile (if given). 
+Format in keyfile is: VAR=VALUE.
 
 Options:
     -k --keys FILE(s)   keyfile(s) with variable substitutions, can occur
@@ -22,4 +24,17 @@ Options:
                         for one key throws an error.
     -? --help           print this help menu
     -V --version        prints current version number
+```
+
+### Build instructions
+```
+$ git clone https://github.com/jburell/proper.git
+$ cd proper
+$ cargo build --release
+```
+### Installation instructions (Linux)
+```
+$ sudo cp target/release/proper /usr/local/bin/
+(Or...)
+$ sudo ln -s target/release/proper /usr/local/bin/proper
 ```
